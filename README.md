@@ -12,10 +12,10 @@ sbatch run-test.sh
 The LAB machines with A40 GPUs: these all the necessary information on how to run experiments on our own GPUs. Here is a quick summary:
 
 1. For convenience: add to your /etc/hosts on your local machine (mac/windows/linux etc.):
-
+```
 10.17.161.12    sprint1
 10.17.161.13    sprint2
-
+```
 2. Login to the sprint1 machine: your-user-name@sprint1
 
 3. Add to the file /home/${USER}/.bashrc on the  sprint1 machine the following:
