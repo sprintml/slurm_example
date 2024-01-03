@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:3
 #SBATCH --partition=all
 #SBATCH --mem=10G
 #SBATCH -c 2
-#SBATCH --job-name=test_single_gpu
 #SBATCH --ntasks 16
+#SBATCH --job-name=test_multigpu
 #SBATCH --nodelist=sprint2
 
 # mitigates activation problems
@@ -20,5 +20,7 @@ echo USER: $USER
 which conda
 which python
 
+echo $CUDA_VISIBLE_DEVICES
+
 # run the code
-PYTHONPATH=. python testslurm.py
+PYTHONPATH=. python -m torch.distributed.launch --nproc_per_node=3 test_multigpu.py

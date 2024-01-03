@@ -5,10 +5,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+import os
 from time import time
+import torch.distributed as dist
 
 device = "cuda"
-
 n_epochs = 3
 batch_size_train = 64
 batch_size_test = 1000
@@ -22,10 +23,51 @@ torch.manual_seed(random_seed)
 
 start = time()
 
-train_loader = torch.utils.data.DataLoader(
+### NEW CODE
+dist_url = "env://"
+world_size = torch.cuda.device_count()
+
+def setup_for_distributed(is_master):
+    """
+    This function disables printing when not in master process
+    """
+    import builtins as __builtin__
+
+    builtin_print = __builtin__.print
+
+    def print(*args, **kwargs):
+        force = kwargs.pop("force", False)
+        if is_master or force:
+            builtin_print(*args, **kwargs)
+
+    __builtin__.print = print
+
+
+def init_distributed_mode():
+    rank = int(os.environ["RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
+    gpu = int(os.environ["LOCAL_RANK"])
+
+    dist.init_process_group(
+        backend="nccl",
+        init_method=dist_url,
+        world_size=world_size,
+        rank=rank,
+    )
+
+    torch.cuda.set_device(gpu)
+    print("| distributed init (rank {}): {}".format(rank, dist_url), flush=True)
+    dist.barrier()
+    setup_for_distributed(rank == 0)
+
+
+init_distributed_mode()
+### END NEW CODE
+
+train_ds, test_ds = [   # ADD DATASETS SEPARATELY
     torchvision.datasets.MNIST(
         "/sprint1/datasets/MNIST/",
-        train=True,
+        train=is_train,
         download=True,
         # torchvision.datasets.MNIST('/files/', train=True, download=True,
         transform=torchvision.transforms.Compose(
@@ -34,26 +76,24 @@ train_loader = torch.utils.data.DataLoader(
                 torchvision.transforms.Normalize((0.1307,), (0.3081,)),
             ]
         ),
-    ),
+    )
+    for is_train in [True, False]
+]
+
+### ADD SAMPLER
+train_sampler = torch.utils.data.distributed.DistributedSampler(train_ds)
+test_sampler = torch.utils.data.distributed.DistributedSampler(test_ds)
+
+train_loader = torch.utils.data.DataLoader(
+    train_ds,
+    sampler=train_sampler,
     batch_size=batch_size_train,
-    shuffle=True,
 )
 
 test_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST(
-        "/sprint1/datasets/MNIST/",
-        train=False,
-        download=True,
-        # torchvision.datasets.MNIST('/files/', train=False, download=True,
-        transform=torchvision.transforms.Compose(
-            [
-                torchvision.transforms.ToTensor(),
-                torchvision.transforms.Normalize((0.1307,), (0.3081,)),
-            ]
-        ),
-    ),
+    test_ds,
+    sampler=test_sampler,
     batch_size=batch_size_test,
-    shuffle=True,
 )
 
 
@@ -87,6 +127,7 @@ test_counter = [i * len(train_loader.dataset) for i in range(n_epochs + 1)]
 
 def train(epoch):
     network.train()
+    train_loader.sampler.set_epoch(epoch)   # SET EPOCH
     for batch_idx, (data, target) in enumerate(train_loader):
         optimizer.zero_grad()
         data = data.to(device)
@@ -115,6 +156,7 @@ def test():
     network.eval()
     test_loss = 0
     correct = 0
+    all_preds = 0
     with torch.no_grad():
         for data, target in test_loader:
             data = data.to(device)
@@ -123,25 +165,28 @@ def test():
             test_loss += F.nll_loss(output, target, size_average=False).item()
             pred = output.data.max(1, keepdim=True)[1]
             correct += pred.eq(target.data.view_as(pred)).sum()
-    test_loss /= len(test_loader.dataset)
+            all_preds += len(pred)
+    test_loss /= all_preds
     test_losses.append(test_loss)
     print(
         "\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
             test_loss,
             correct,
-            len(test_loader.dataset),
-            100.0 * correct / len(test_loader.dataset),
+            all_preds,
+            100.0 * correct / all_preds,
         )
     )
 
 
 model = network.to(device)
 
+### NEW CODE
+model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[device])
+### END NEW CODE
 
 test()
 for epoch in range(1, n_epochs + 1):
     train(epoch)
     test()
 
-end = time()
-print("Time taken: ", end - start)
+print("Time taken: ", time() - start)
