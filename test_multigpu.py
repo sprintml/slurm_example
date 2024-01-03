@@ -21,11 +21,11 @@ random_seed = 1
 torch.backends.cudnn.enabled = False
 torch.manual_seed(random_seed)
 
-dist_url = "env://"
-world_size = torch.cuda.device_count()
-
 start = time()
 
+### NEW CODE
+dist_url = "env://"
+world_size = torch.cuda.device_count()
 
 def setup_for_distributed(is_master):
     """
@@ -62,9 +62,9 @@ def init_distributed_mode():
 
 
 init_distributed_mode()
+### END NEW CODE
 
-
-train_ds, test_ds = [
+train_ds, test_ds = [   # ADD DATASETS SEPARATELY
     torchvision.datasets.MNIST(
         "/sprint1/datasets/MNIST/",
         train=is_train,
@@ -80,6 +80,7 @@ train_ds, test_ds = [
     for is_train in [True, False]
 ]
 
+### ADD SAMPLER
 train_sampler = torch.utils.data.distributed.DistributedSampler(train_ds)
 test_sampler = torch.utils.data.distributed.DistributedSampler(test_ds)
 
@@ -126,7 +127,7 @@ test_counter = [i * len(train_loader.dataset) for i in range(n_epochs + 1)]
 
 def train(epoch):
     network.train()
-    train_loader.sampler.set_epoch(epoch)
+    train_loader.sampler.set_epoch(epoch)   # SET EPOCH
     for batch_idx, (data, target) in enumerate(train_loader):
         optimizer.zero_grad()
         data = data.to(device)
@@ -178,8 +179,10 @@ def test():
 
 
 model = network.to(device)
-model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[device])
 
+### NEW CODE
+model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[device])
+### END NEW CODE
 
 test()
 for epoch in range(1, n_epochs + 1):
