@@ -19,7 +19,7 @@ The LAB machines with A40 GPUs: these all the necessary information on how to ru
 10.17.161.13    sprint2
 ```
 
-2. Login to the sprint1 machine: your-user-name@sprint1
+2. Login to the sprint1 machine: ssh your-user-name@sprint1
 
 3. Add to the file /home/${USER}/.bashrc on the  sprint1 machine the following:
 ```
