@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:1
 #SBATCH --partition=all
 #SBATCH --mem=10G
 #SBATCH -c 2
