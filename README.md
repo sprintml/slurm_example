@@ -24,8 +24,7 @@ The LAB machines with A40 GPUs: these all the necessary information on how to ru
 3. Add to the file /home/${USER}/.bashrc on the  sprint1 machine the following:
 ```
 export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
-export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64\
-                     	${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
